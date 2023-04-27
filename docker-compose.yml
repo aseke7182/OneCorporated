@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  redis:
+    image: "redis:alpine"
+    networks:
+      my_network_oneCorp:
+        ipv4_address: 192.168.55.9
+
+  celery:
+    hostname: worker1
+    build: .
+
+    networks:
+      - my_network_oneCorp
+
+    command: celery -A OneCorporated worker -l info
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+
+  django_server:
+    build: .
+    container_name: OneCorporated
+
+    networks:
+      my_network_oneCorp:
+        ipv4_address: 192.168.55.10
+
+    ports:
+      - '8000:8000'
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    command: bash -c "python manage.py migrate &&
+                      python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - redis
+      - celery
+
+networks:
+  my_network_oneCorp:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet:  192.168.55.0/24
+          gateway: 192.168.55.1
